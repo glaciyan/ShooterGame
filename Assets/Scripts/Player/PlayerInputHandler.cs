@@ -108,7 +108,6 @@ namespace Player
 
         private void OnJump()
         {
-            Debug.Log("Jump Input");
             _requestedJump = true;
         }
 
