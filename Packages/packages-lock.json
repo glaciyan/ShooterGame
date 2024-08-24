@@ -7,6 +7,17 @@
       "dependencies": {},
       "hash": "053261fa33fd080fb5618ae5808c8b98ef35c8ea"
     },
+    "com.harumaro.ugizmo": {
+      "version": "https://github.com/harumas/UGizmo.git?path=src/UGizmo/Assets/UGizmo",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.burst": "1.8.12",
+        "com.unity.collections": "1.2.4",
+        "com.unity.mathematics": "1.2.6"
+      },
+      "hash": "cec6f3941a6bd33a8bc2453a90b86bc5280e4b9e"
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.3",
       "depth": 0,
@@ -18,7 +29,7 @@
     },
     "com.unity.burst": {
       "version": "1.8.17",
-      "depth": 2,
+      "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.mathematics": "1.2.1",
@@ -88,7 +99,7 @@
     },
     "com.unity.nuget.mono-cecil": {
       "version": "1.11.4",
-      "depth": 3,
+      "depth": 2,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
@@ -184,7 +195,7 @@
     },
     "com.unity.test-framework.performance": {
       "version": "3.0.3",
-      "depth": 3,
+      "depth": 2,
       "source": "registry",
       "dependencies": {
         "com.unity.test-framework": "1.1.31",
