@@ -38,6 +38,7 @@ namespace Player
 
         private void FixedUpdate()
         {
+            Debug.Log(velocity.magnitude);
             var acceleration = Vector3.zero;
             GroundCheck();
             var jumped = _inputHandler.ConsumeJump();
@@ -81,10 +82,13 @@ namespace Player
                 var slidingCastHit = Physics.CapsuleCast(GetCapsuleBottomHemisphere(),
                     GetCapsuleTopHemisphere(_characterController.height), _characterController.radius, nextVelocity.normalized,
                     out var hit, nextVelocity.magnitude, groundCheckLayers);
-                
                 UGizmos.DrawCapsuleCast(GetCapsuleBottomHemisphere(),
                     GetCapsuleTopHemisphere(_characterController.height), _characterController.radius, nextVelocity.normalized,
                     nextVelocity.magnitude, slidingCastHit, hit);
+                // var slidingCastHit = Physics.Raycast(GetCapsuleBottomHemisphere(), nextVelocity.normalized, out var hit,
+                //     nextVelocity.magnitude + _characterController.radius, groundCheckLayers);
+                // UGizmos.DrawRaycast(GetCapsuleBottomHemisphere(), nextVelocity.normalized,
+                //     nextVelocity.magnitude + _characterController.radius, slidingCastHit, hit);
 
                 if (slidingCastHit)
                 {
@@ -104,16 +108,30 @@ namespace Player
                     Debug.DrawRay(gameObject.transform.position, orthogonalVelocity, Color.red);
                     Debug.DrawRay(gameObject.transform.position, adjustedVelocity, Color.magenta);
                     Debug.DrawRay(gameObject.transform.position + parrallelVelocity, hitTransform, Color.cyan);
+
+                    // down sliding
+                    if (Vector3.Dot(Vector3.down, adjustedVelocity) > 0f)
+                    {
+                        var feetFoundGround = Physics.Raycast(gameObject.transform.position, Vector3.down, out var feetHit);
+                        var nextFeetFoundGround = Physics.Raycast(gameObject.transform.position + adjustedVelocity, Vector3.down, out var nextFeetHit);
+                        if (feetFoundGround && nextFeetFoundGround)
+                        {
+                            if (IsNormalUnderSlopeLimit(feetHit.normal) && IsNormalUnderSlopeLimit(nextFeetHit.normal))
+                            {
+                                goto slidingDownNeverHappened;
+                            }
+                        }
+                    }
                     
-                    var lastpos = gameObject.transform.position;
                     velocity = adjustedVelocity;
-                    Debug.Log(velocity.magnitude);
+                    
                     _characterController.Move(velocity);
                     velocity += gravityForce * Time.deltaTime;
-                    Debug.DrawRay(lastpos, velocity, Color.yellow);
                     
+                    UGizmos.DrawWireCapsule(GetCapsuleBottomHemisphere(), GetCapsuleTopHemisphere(_characterController.height), _characterController.radius, Color.gray);
                     return;
                 }
+                slidingDownNeverHappened:
 
                 acceleration += gravityForce;
             }
