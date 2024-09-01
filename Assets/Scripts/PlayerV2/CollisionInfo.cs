@@ -2,10 +2,10 @@ using UnityEngine;
 
 public struct CollisionInfo
 {
-    public bool Hit { get; set; }
-    
-    public RaycastHit HitInfo { get; set; }
-    
-    
-    public Vector3 NearPoint { get; set; }
+    public Vector3 NearPoint; // 12 bytes
+    public float PlaneDist; // 4 bytes
+    public float ShortDistance; // 4 bytes
+    public Vector3 Remainder;
+    public bool HasHit; // 1 byte
+    public RaycastHit HitInfo; // 40 bytes
 }

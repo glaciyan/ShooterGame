@@ -44,3 +44,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d2543da6f31f9aa4b8c827a2d44aee53, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bodySize: {x: 0.8, y: 2}
+  skinWidth: 0.008
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  gravityForce: 0.35
+  down: {x: 0, y: -1, z: 0}
+  velocity: {x: 0, y: 0, z: 0}

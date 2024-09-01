@@ -1,5 +1,3 @@
-using System.Numerics;
-using System.Runtime.CompilerServices;
 using UGizmo;
 using UnityEngine;
 using Vector2 = UnityEngine.Vector2;
@@ -22,7 +20,6 @@ public class GameMovement : MonoBehaviour
     //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     //     get => skinWidth * 2f;
     // }
-
     public LayerMask groundLayer;
 
     public float gravityForce = 0.35f;
@@ -30,9 +27,9 @@ public class GameMovement : MonoBehaviour
     public Vector3 down = Vector3.down;
 
     public Vector3 velocity = Vector3.zero;
-    
+
     private CollisionInfo _collisionInfo;
-    
+
     private const bool PlayerPhysicsDebug = true;
 
     private void FixedUpdate()
@@ -42,51 +39,80 @@ public class GameMovement : MonoBehaviour
         // https://docs.unity3d.com/Packages/com.unity.charactercontroller@1.1/manual/step-handling.html
         var dt = Time.fixedDeltaTime;
         var acceleration = Vector3.zero;
-        
-        velocity += acceleration * dt;
-        BodyCast(transform.position, velocity);
 
-        if (PlayerPhysicsDebug)
-        {
-            UGizmos.DrawWireCapsule(GetBottomHemisphere(transform.position), GetTopHemisphere(transform.position), Radius, Color.gray);
-            UGizmos.DrawLine(transform.position, transform.position + velocity, Color.blue);
-        }
-        
-        // update
-        transform.position += velocity;
+        velocity += acceleration * dt;
+        CollideAndSlide();
+
+        // if (PlayerPhysicsDebug)
+        // {
+        //     UGizmos.DrawWireCapsule(GetBottomHemisphere(transform.position), GetTopHemisphere(transform.position), Radius, Color.gray);
+        //     UGizmos.DrawLine(transform.position, transform.position + velocity, Color.blue);
+        // }
+
 
         // post update
     }
 
-    private void BodyCast(Vector3 position, Vector3 displacement)
+    private void CollideAndSlide()
+    {
+        BodyCast(transform.position, velocity);
+        if (_collisionInfo.HasHit)
+        {
+            var dest = transform.position + velocity;
+
+            var velNew = Vector3.ProjectOnPlane(_collisionInfo.Remainder, _collisionInfo.HitInfo.normal);
+            var destNew = _collisionInfo.NearPoint + velNew;
+
+            transform.position = destNew;
+            velocity = velNew;
+            if (PlayerPhysicsDebug)
+            {
+                UGizmos.DrawPoint(dest, 0.01f, Color.blue);
+                UGizmos.DrawPoint(_collisionInfo.NearPoint, 0.01f, Color.green);
+                UGizmos.DrawLine(dest, _collisionInfo.NearPoint, Color.blue);
+                UGizmos.DrawWireCapsule(GetBottomHemisphere(_collisionInfo.NearPoint),
+                    GetTopHemisphere(_collisionInfo.NearPoint), Radius, Color.gray);
+                UGizmos.DrawPoint(destNew, 0.01f, Color.red);
+                UGizmos.DrawLine(transform.position, transform.position + velocity, Color.red);
+            }
+        }
+        else
+        {
+            transform.position += velocity;
+        }
+    }
+
+    private void BodyCast(Vector3 position, Vector3 vel)
     {
         var bottom = GetBottomHemisphere(position);
         var top = GetTopHemisphere(position);
-        var magnitude = displacement.magnitude;
-        var direction = displacement / magnitude;
+        var magnitude = vel.magnitude;
+        var direction = vel / magnitude;
 
         var hasHit = Physics.CapsuleCast(bottom, top, Radius, direction, out var hitInfo,
             magnitude, groundLayer, QueryTriggerInteraction.UseGlobal);
 
+        var shortDistance = Mathf.Max(hitInfo.distance - skinWidth, 0f);
+        var remainingDistance = magnitude - shortDistance;
 
-        var shortDistance = Mathf.Min(hitInfo.distance - skinWidth, 0f);
-        
         if (PlayerPhysicsDebug)
         {
             UGizmos.DrawPoint(hitInfo.point, 0.03f, Color.red);
             UGizmos.DrawArrow(hitInfo.point, hitInfo.point + hitInfo.normal * 0.5f, Color.gray, 0.2f, 0.01f);
         }
-        
+
         if (hasHit)
         {
-            // TODO UpdateEdgeInfo?
-            _collisionInfo.Hit = true;
+            _collisionInfo.HasHit = true;
             _collisionInfo.HitInfo = hitInfo;
-            _collisionInfo.NearPoint = direction * shortDistance;
+            _collisionInfo.ShortDistance = shortDistance;
+            _collisionInfo.Remainder = direction * remainingDistance;
+            _collisionInfo.NearPoint = position + direction * shortDistance;
+            _collisionInfo.PlaneDist = Vector3.Dot(position + velocity - hitInfo.point, hitInfo.normal);
         }
         else
         {
-            _collisionInfo.Hit = false;
+            _collisionInfo.HasHit = false;
         }
     }
 

@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.handzlikchris.fastscriptreload": "https://github.com/handzlikchris/FastScriptReload.git?path=Assets",
     "com.harumaro.ugizmo": "https://github.com/harumas/UGizmo.git?path=src/UGizmo/Assets/UGizmo",
     "com.unity.ai.navigation": "2.0.3",
     "com.unity.collab-proxy": "2.4.4",

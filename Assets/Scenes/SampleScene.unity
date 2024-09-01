@@ -28675,21 +28675,17 @@ PrefabInstance:
       propertyPath: velocity.z
       value: 0.2
       objectReference: {fileID: 0}
-    - target: {fileID: 3488574570696846860, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
-      propertyPath: groundLayer.m_Bits
-      value: 4294967295
-      objectReference: {fileID: 0}
     - target: {fileID: 5190730126775880034, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.299
+      value: 0.18415213
       objectReference: {fileID: 0}
     - target: {fileID: 5190730126775880034, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1.321
+      value: 1.25
       objectReference: {fileID: 0}
     - target: {fileID: 5190730126775880034, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 2.663
+      value: 3.0187056
       objectReference: {fileID: 0}
     - target: {fileID: 5190730126775880034, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
       propertyPath: m_LocalRotation.w
