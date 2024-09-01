@@ -4604,7 +4604,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.2
   far clip plane: 1000
   field of view: 60
   orthographic: 0
@@ -28667,6 +28667,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1860501661791656153, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
+      propertyPath: playerCamera
+      value: 
+      objectReference: {fileID: 876585457}
     - target: {fileID: 2037593317216014315, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
       propertyPath: m_Name
       value: PlayerV2
@@ -28679,13 +28683,17 @@ PrefabInstance:
       propertyPath: velocity.z
       value: 0.05
       objectReference: {fileID: 0}
+    - target: {fileID: 4630187739693686391, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
+      propertyPath: subject
+      value: 
+      objectReference: {fileID: 876585454}
     - target: {fileID: 5190730126775880034, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
       propertyPath: m_LocalPosition.x
       value: -5.453
       objectReference: {fileID: 0}
     - target: {fileID: 5190730126775880034, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1.25
+      value: 1.295
       objectReference: {fileID: 0}
     - target: {fileID: 5190730126775880034, guid: 141706f9bdadee64b926750450c8b1f6, type: 3}
       propertyPath: m_LocalPosition.z

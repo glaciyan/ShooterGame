@@ -5,6 +5,8 @@ namespace Player
 {
     public class PlayerInputHandler : MonoBehaviour
     {
+        public Camera playerCamera;
+
         private Vector2 _movementInput;
 
         private void OnMove(InputValue value)
@@ -57,29 +59,29 @@ namespace Player
             }
         }
 
-        public Vector3 Forward
-        {
-            get
-            {
-                var yawRadians = Mathf.Deg2Rad * VirtualViewAngle.x;
-
-                // Calculate the forward vector on the XZ plane
-                var x = Mathf.Sin(yawRadians);
-                var z = Mathf.Cos(yawRadians);
-
-                // Create the forward vector and normalize it
-                return new Vector3(x, 0, z).normalized;
-            }
-        }
-
-        public Vector3 Right
-        {
-            get
-            {
-                var forward = Forward;
-                return new Vector3(forward.z, 0, -forward.x).normalized;
-            }
-        }
+        // public Vector3 Forward
+        // {
+        //     get
+        //     {
+        //         var yawRadians = Mathf.Deg2Rad * VirtualViewAngle.x;
+        //
+        //         // Calculate the forward vector on the XZ plane
+        //         var x = Mathf.Sin(yawRadians);
+        //         var z = Mathf.Cos(yawRadians);
+        //
+        //         // Create the forward vector and normalize it
+        //         return new Vector3(x, 0, z).normalized;
+        //     }
+        // }
+        //
+        // public Vector3 Right
+        // {
+        //     get
+        //     {
+        //         var forward = Forward;
+        //         return new Vector3(forward.z, 0, -forward.x).normalized;
+        //     }
+        // }
 
         public float lookSensitivity = 1f;
 
@@ -123,6 +125,12 @@ namespace Player
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+        }
+
+        private void Update()
+        {
+            playerCamera.transform.rotation =
+                Quaternion.Euler(new Vector3(-VirtualViewAngle.y, VirtualViewAngle.x, 0f));
         }
     }
 }
