@@ -3,9 +3,8 @@ using UnityEngine;
 public struct CollisionInfo
 {
     public Vector3 NearPoint; // 12 bytes
-    public float PlaneDist; // 4 bytes
     public float ShortDistance; // 4 bytes
-    public Vector3 Remainder;
+    public Vector3 RemainderVelocity;
     public bool HasHit; // 1 byte
     public RaycastHit HitInfo; // 40 bytes
 }

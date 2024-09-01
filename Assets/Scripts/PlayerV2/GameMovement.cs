@@ -41,7 +41,7 @@ public class GameMovement : MonoBehaviour
         var acceleration = Vector3.zero;
 
         velocity += acceleration * dt;
-        CollideAndSlide();
+        transform.position = CollideAndSlide(transform.position, velocity);
 
         // if (PlayerPhysicsDebug)
         // {
@@ -53,33 +53,49 @@ public class GameMovement : MonoBehaviour
         // post update
     }
 
-    private void CollideAndSlide()
+    private Vector3 CollideAndSlide(Vector3 pos, Vector3 vel)
     {
-        BodyCast(transform.position, velocity);
-        if (_collisionInfo.HasHit)
+        var firstPlaneNormal = Vector3.negativeInfinity;
+        var dest = pos + vel;
+        
+        for (var i = 0; i < 3; i++)
         {
-            var dest = transform.position + velocity;
+            BodyCast(pos, vel);
+            
+            // no collisions
+            if (!_collisionInfo.HasHit) return dest;
+            
+            pos += vel.normalized * _collisionInfo.ShortDistance;
 
-            var velNew = Vector3.ProjectOnPlane(_collisionInfo.Remainder, _collisionInfo.HitInfo.normal);
-            var destNew = _collisionInfo.NearPoint + velNew;
-
-            transform.position = destNew;
-            velocity = velNew;
-            if (PlayerPhysicsDebug)
+            if (i == 0)
             {
-                UGizmos.DrawPoint(dest, 0.01f, Color.blue);
-                UGizmos.DrawPoint(_collisionInfo.NearPoint, 0.01f, Color.green);
-                UGizmos.DrawLine(dest, _collisionInfo.NearPoint, Color.blue);
-                UGizmos.DrawWireCapsule(GetBottomHemisphere(_collisionInfo.NearPoint),
-                    GetTopHemisphere(_collisionInfo.NearPoint), Radius, Color.gray);
-                UGizmos.DrawPoint(destNew, 0.01f, Color.red);
-                UGizmos.DrawLine(transform.position, transform.position + velocity, Color.red);
+                // first plane hit
+                firstPlaneNormal = _collisionInfo.HitInfo.normal;
+                vel = Vector3.ProjectOnPlane(_collisionInfo.RemainderVelocity, _collisionInfo.HitInfo.normal);
+                dest = _collisionInfo.NearPoint + vel;
+
+                if (PlayerPhysicsDebug)
+                {
+                    UGizmos.DrawPoint(dest, 0.01f, Color.blue);
+                    UGizmos.DrawPoint(_collisionInfo.NearPoint, 0.01f, Color.green);
+                    UGizmos.DrawLine(dest, _collisionInfo.NearPoint, Color.blue);
+                    UGizmos.DrawWireCapsule(GetBottomHemisphere(_collisionInfo.NearPoint),
+                        GetTopHemisphere(_collisionInfo.NearPoint), Radius, Color.gray);
+                    UGizmos.DrawPoint(dest, 0.01f, Color.red);
+                    UGizmos.DrawLine(pos, pos + vel, Color.red);
+                }
+            }
+            else if (i == 1)
+            {
+                // second plane hit
+                var crease = Vector3.Cross(firstPlaneNormal, _collisionInfo.HitInfo.normal).normalized;
+                var signedDistance = Vector3.Dot(_collisionInfo.RemainderVelocity, crease);
+                vel = signedDistance * crease;
+                dest = pos + vel;
             }
         }
-        else
-        {
-            transform.position += velocity;
-        }
+        
+        return pos;
     }
 
     private void BodyCast(Vector3 position, Vector3 vel)
@@ -106,9 +122,8 @@ public class GameMovement : MonoBehaviour
             _collisionInfo.HasHit = true;
             _collisionInfo.HitInfo = hitInfo;
             _collisionInfo.ShortDistance = shortDistance;
-            _collisionInfo.Remainder = direction * remainingDistance;
+            _collisionInfo.RemainderVelocity = direction * remainingDistance;
             _collisionInfo.NearPoint = position + direction * shortDistance;
-            _collisionInfo.PlaneDist = Vector3.Dot(position + velocity - hitInfo.point, hitInfo.normal);
         }
         else
         {
