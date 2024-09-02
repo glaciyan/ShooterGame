@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Player
+namespace Input
 {
     public class PlayerInputHandler : MonoBehaviour
     {
@@ -33,7 +33,7 @@ namespace Player
         /// The X Component represents yaw.
         /// The Y Component represents pitch.
         /// </summary>
-        public Vector2 VirtualViewAngle { get; private set; } = Vector2.zero;
+        private Vector2 VirtualViewAngle { get; set; } = Vector2.zero;
 
         public Vector3 LineOfSight
         {
@@ -129,8 +129,11 @@ namespace Player
 
         private void Update()
         {
-            playerCamera.transform.rotation =
-                Quaternion.Euler(new Vector3(-VirtualViewAngle.y, VirtualViewAngle.x, 0f));
+            if (playerCamera)
+            {
+                playerCamera.transform.rotation =
+                    Quaternion.Euler(new Vector3(-VirtualViewAngle.y, VirtualViewAngle.x, 0f));
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PlayerV2
+namespace Player
 {
     public struct CollisionInfo
     {
