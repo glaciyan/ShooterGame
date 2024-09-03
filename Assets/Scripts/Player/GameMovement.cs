@@ -36,6 +36,7 @@ namespace Player
 
         [Header("Debug")]
         public Vector3 velocity = Vector3.zero;
+
         public Vector3 verticalVelocity = Vector3.zero;
         public Vector3 velocityOverride = Vector3.zero;
         public bool useVelocityOverride = false;
@@ -65,7 +66,6 @@ namespace Player
             // Ground friction
             acceleration -= velocity.normalized * (velocity.magnitude * groundFriction);
 
-            // BUG: you can still build up velocity even when you have no degrees of freedom in that direction
             // Apply Horizontal velocity
             velocity += acceleration * dt;
             if (useVelocityOverride)
@@ -78,12 +78,6 @@ namespace Player
             UGizmos.DrawWireCapsule(GetBottomHemisphere(transform.position), GetTopHemisphere(transform.position),
                 Radius + skinWidth, Color.gray);
             UGizmos.DrawLine(transform.position, transform.position + velocity, Color.yellow);
-
-            // Gravity
-            // verticalVelocity += down * (gravityForce * dt);
-
-            // Apply Vertical velocity
-            // transform.position = CollideAndSlide(posNew, ref verticalVelocity);
         }
 
         private int casIter;
@@ -106,13 +100,12 @@ namespace Player
                 {
                     // first plane hit
                     firstPlaneNormal = _collisionInfo.HitInfo.normal;
-                    // vel = Vector3.ProjectOnPlane(_collisionInfo.RemainderVelocity, _collisionInfo.HitInfo.normal);
-                    // dest = _collisionInfo.NearPoint + vel;
+                    vel = Vector3.ProjectOnPlane(_collisionInfo.RemainderVelocity, _collisionInfo.HitInfo.normal);
+                    dest = _collisionInfo.NearPoint + vel;
                     // dest is the bottom sphere, we need to get the closes point on the segment and use that sphere instead
-                    var relevantOffset = ClosestPointOffset(dest, _collisionInfo.HitInfo.point);
-                    dest -= (PlaneDist(dest, firstPlaneNormal, _collisionInfo.HitInfo.point) - (Radius + skinWidth)) *
-                            firstPlaneNormal;
-                    vel = dest - _collisionInfo.NearPoint;
+                    // dest -= (PlaneDist(dest, firstPlaneNormal, _collisionInfo.HitInfo.point) - (Radius + skinWidth)) *
+                    //         firstPlaneNormal;
+                    // vel = dest - _collisionInfo.NearPoint;
                 }
                 else if (casIter == 1)
                 {
@@ -143,8 +136,6 @@ namespace Player
             var hasHit = Physics.CapsuleCast(bottom, top, Radius, direction, out var hitInfo,
                 magnitude + skinWidth, groundLayer, QueryTriggerInteraction.UseGlobal);
 
-            var shortDistance = Mathf.Max(hitInfo.distance - skinWidth, 0f);
-            var remainingDistance = magnitude - shortDistance;
 
             if (PlayerPhysicsDebug)
             {
@@ -153,27 +144,36 @@ namespace Player
 
             if (hasHit)
             {
+                var touchVel = vel * hitInfo.distance / vel.magnitude;
+                var n = hitInfo.normal;
+                var adjustedSkinWidth = -(skinWidth * n.sqrMagnitude * vel.magnitude) / Vector3.Dot(n, touchVel);
+                var shortDistance = Mathf.Max(hitInfo.distance - adjustedSkinWidth, 0f);
+                var remainingDistance = magnitude - shortDistance;
+
                 _collisionInfo.HasHit = true;
                 _collisionInfo.HitInfo = hitInfo;
                 _collisionInfo.ShortDistance = shortDistance;
                 _collisionInfo.RemainderVelocity = direction * remainingDistance;
-                // BUG: NearPoint is not skinWidth away from the collision point
                 _collisionInfo.NearPoint = position + direction * shortDistance;
-                
-                UGizmos.DrawWireSphere(position + ClosestPointOffset(position, hitInfo.point), Radius, Color.yellow);
+                _collisionInfo.RelevantOffset = ClosestPointOffset(position, hitInfo.point);
 
-                // var color = casIter switch
-                // {
-                //     0 => Color.red,
-                //     1 => Color.blue,
-                //     _ => Color.green
-                // };
+                var color = casIter switch
+                {
+                    0 => Color.blue,
+                    1 => Color.green,
+                    _ => Color.red
+                };
                 // UGizmos.DrawWireCapsule(bottom, top, Radius, color);
-                // var hitPos = position + direction * hitInfo.distance;
-                // var bottomNew = GetBottomHemisphere(hitPos);
-                // var topNew = GetTopHemisphere(hitPos);
-                // UGizmos.DrawWireCapsule(bottomNew, topNew, Radius, color);
-                // UGizmos.DrawArrow(hitPos, _collisionInfo.NearPoint, color, 1f, 0.05f);
+                var hitPos = position + direction * hitInfo.distance;
+                var bottomNew = GetBottomHemisphere(hitPos);
+                var topNew = GetTopHemisphere(hitPos);
+                UGizmos.DrawWireCapsule(bottomNew, topNew, Radius, color);
+                UGizmos.DrawWireCapsule(bottomNew, topNew, Radius + skinWidth, Color.blue);
+                UGizmos.DrawWireSphere(hitPos + _collisionInfo.RelevantOffset, Radius, Color.yellow);
+                UGizmos.DrawArrow(hitPos, _collisionInfo.NearPoint, color, 1f, 0.05f);
+                // UGizmos.DrawPoint(hitInfo.point - hitInfo.normal * skinWidth, 0.01f, Color.blue);
+                UGizmos.DrawLine(hitInfo.point - hitInfo.normal * skinWidth,
+                    hitInfo.point - hitInfo.normal * skinWidth - velocity.normalized * adjustedSkinWidth, Color.blue);
             }
             else
             {
@@ -211,9 +211,7 @@ namespace Player
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static float PlaneDist(Vector3 point, Vector3 planeNormal, Vector3 planePosition)
         {
-            return Vector3.Dot(point, planeNormal) + -(planeNormal.x * planePosition.x +
-                                                       planeNormal.y * planePosition.y +
-                                                       planeNormal.z * planePosition.z);
+            return Vector3.Dot(point - planePosition, planeNormal);
         }
 
         private Vector3 ClosestPointOffset(Vector3 position, Vector3 point)
@@ -222,9 +220,8 @@ namespace Player
             var top = GetTopHemisphere(position);
 
             var p1P2 = top - bottom;
-            var p1Q = point - bottom;
 
-            var t = Vector3.Dot(p1Q, p1P2) / Vector3.Dot(p1P2, p1P2);
+            var t = Vector3.Dot(point - bottom, p1P2) / Vector3.Dot(p1P2, p1P2);
             t = Math.Clamp(t, 0, 1);
 
             return t * p1P2;
