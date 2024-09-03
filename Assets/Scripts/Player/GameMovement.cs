@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 using Input;
 using UGizmo;
@@ -35,10 +36,9 @@ namespace Player
 
         [Header("Debug")]
         public Vector3 velocity = Vector3.zero;
-
         public Vector3 verticalVelocity = Vector3.zero;
-        [FormerlySerializedAs("pushVelocity")] public Vector3 velocityOverride = Vector3.zero;
-        [FormerlySerializedAs("usePush")] public bool useVelocityOverride = false;
+        public Vector3 velocityOverride = Vector3.zero;
+        public bool useVelocityOverride = false;
 
         private CollisionInfo _collisionInfo;
 
@@ -77,6 +77,7 @@ namespace Player
             // Debug.Log(Vector3.Dot(down, _collisionInfo.HitInfo.normal) + " " + casIter);
             UGizmos.DrawWireCapsule(GetBottomHemisphere(transform.position), GetTopHemisphere(transform.position),
                 Radius + skinWidth, Color.gray);
+            UGizmos.DrawLine(transform.position, transform.position + velocity, Color.yellow);
 
             // Gravity
             // verticalVelocity += down * (gravityForce * dt);
@@ -107,20 +108,11 @@ namespace Player
                     firstPlaneNormal = _collisionInfo.HitInfo.normal;
                     // vel = Vector3.ProjectOnPlane(_collisionInfo.RemainderVelocity, _collisionInfo.HitInfo.normal);
                     // dest = _collisionInfo.NearPoint + vel;
-                    // BUG: dest is the bottom sphere, we need to get the closes point on the segment and use that somehow
+                    // dest is the bottom sphere, we need to get the closes point on the segment and use that sphere instead
+                    var relevantOffset = ClosestPointOffset(dest, _collisionInfo.HitInfo.point);
                     dest -= (PlaneDist(dest, firstPlaneNormal, _collisionInfo.HitInfo.point) - (Radius + skinWidth)) *
                             firstPlaneNormal;
                     vel = dest - _collisionInfo.NearPoint;
-
-                    if (PlayerPhysicsDebug)
-                    {
-                        // UGizmos.DrawPoint(dest, 0.01f, Color.blue);
-                        // UGizmos.DrawPoint(_collisionInfo.NearPoint, 0.01f, Color.green);
-                        // UGizmos.DrawWireCapsule(GetBottomHemisphere(_collisionInfo.NearPoint),
-                        //     GetTopHemisphere(_collisionInfo.NearPoint), Radius, Color.gray);
-                        // UGizmos.DrawPoint(dest, 0.01f, Color.red);
-                        UGizmos.DrawLine(pos, pos + vel, Color.red);
-                    }
                 }
                 else if (casIter == 1)
                 {
@@ -167,20 +159,21 @@ namespace Player
                 _collisionInfo.RemainderVelocity = direction * remainingDistance;
                 // BUG: NearPoint is not skinWidth away from the collision point
                 _collisionInfo.NearPoint = position + direction * shortDistance;
+                
+                UGizmos.DrawWireSphere(position + ClosestPointOffset(position, hitInfo.point), Radius, Color.yellow);
 
-                var color = casIter switch
-                {
-                    0 => Color.red,
-                    1 => Color.blue,
-                    _ => Color.green
-                };
-                UGizmos.DrawWireCapsule(bottom, top, Radius, color);
-                var hitPos = position + direction * hitInfo.distance;
-                var bottomNew = GetBottomHemisphere(hitPos);
-                var topNew = GetTopHemisphere(hitPos);
-                UGizmos.DrawWireCapsule(bottomNew, topNew, Radius, color);
-                UGizmos.DrawArrow(hitPos, _collisionInfo.NearPoint, color, 1f, 0.05f);
-                UGizmos.DrawWireSphere(_collisionInfo.NearPoint, Radius, Color.yellow);
+                // var color = casIter switch
+                // {
+                //     0 => Color.red,
+                //     1 => Color.blue,
+                //     _ => Color.green
+                // };
+                // UGizmos.DrawWireCapsule(bottom, top, Radius, color);
+                // var hitPos = position + direction * hitInfo.distance;
+                // var bottomNew = GetBottomHemisphere(hitPos);
+                // var topNew = GetTopHemisphere(hitPos);
+                // UGizmos.DrawWireCapsule(bottomNew, topNew, Radius, color);
+                // UGizmos.DrawArrow(hitPos, _collisionInfo.NearPoint, color, 1f, 0.05f);
             }
             else
             {
@@ -221,6 +214,20 @@ namespace Player
             return Vector3.Dot(point, planeNormal) + -(planeNormal.x * planePosition.x +
                                                        planeNormal.y * planePosition.y +
                                                        planeNormal.z * planePosition.z);
+        }
+
+        private Vector3 ClosestPointOffset(Vector3 position, Vector3 point)
+        {
+            var bottom = GetBottomHemisphere(position);
+            var top = GetTopHemisphere(position);
+
+            var p1P2 = top - bottom;
+            var p1Q = point - bottom;
+
+            var t = Vector3.Dot(p1Q, p1P2) / Vector3.Dot(p1P2, p1P2);
+            t = Math.Clamp(t, 0, 1);
+
+            return t * p1P2;
         }
     }
 }
