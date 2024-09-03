@@ -101,6 +101,7 @@ namespace Player
                     // first plane hit
                     firstPlaneNormal = _collisionInfo.HitInfo.normal;
                     vel = Vector3.ProjectOnPlane(_collisionInfo.RemainderVelocity, _collisionInfo.HitInfo.normal);
+                    UGizmos.DrawLine(_collisionInfo.NearPoint, _collisionInfo.NearPoint+vel, Color.cyan);
                     dest = _collisionInfo.NearPoint + vel;
                     // dest is the bottom sphere, we need to get the closes point on the segment and use that sphere instead
                     // dest -= (PlaneDist(dest, firstPlaneNormal, _collisionInfo.HitInfo.point) - (Radius + skinWidth)) *
@@ -146,7 +147,7 @@ namespace Player
             {
                 var touchVel = vel * hitInfo.distance / vel.magnitude;
                 var n = hitInfo.normal;
-                var adjustedSkinWidth = -(skinWidth * n.sqrMagnitude * vel.magnitude) / Vector3.Dot(n, touchVel);
+                var adjustedSkinWidth = -(skinWidth * n.sqrMagnitude * touchVel.magnitude) / Vector3.Dot(n, touchVel);
                 var shortDistance = Mathf.Max(hitInfo.distance - adjustedSkinWidth, 0f);
                 var remainingDistance = magnitude - shortDistance;
 
@@ -174,6 +175,7 @@ namespace Player
                 // UGizmos.DrawPoint(hitInfo.point - hitInfo.normal * skinWidth, 0.01f, Color.blue);
                 UGizmos.DrawLine(hitInfo.point - hitInfo.normal * skinWidth,
                     hitInfo.point - hitInfo.normal * skinWidth - velocity.normalized * adjustedSkinWidth, Color.blue);
+                UGizmos.DrawWireCapsule(GetBottomHemisphere(_collisionInfo.NearPoint), GetTopHemisphere(_collisionInfo.NearPoint), Radius + skinWidth, Color.cyan);
             }
             else
             {
