@@ -1,11 +1,11 @@
 using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Input;
 using UGizmo;
-using Unity.VisualScripting.FullSerializer.Internal.Converters;
+using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.Serialization;
-using Vector2 = UnityEngine.Vector2;
+using static Player.PlayerGroundedState;
 using Vector3 = UnityEngine.Vector3;
 
 namespace Player
@@ -13,7 +13,10 @@ namespace Player
     [RequireComponent(typeof(PlayerInputHandler))]
     public class GameMovement : MonoBehaviour
     {
-        [Header("Collision")]
+        private const bool PlayerPhysicsDebug = true;
+        private const float Unit = 0.025f;
+
+        [Header("Physics")]
         public float height = 1.8f;
 
         public float radius = 0.8f;
@@ -24,32 +27,46 @@ namespace Player
 
         public LayerMask groundLayer;
 
-        [Header("Gravity")]
+        public float wallTolerance = 0.0001f;
+        public float slopeAngle = 45f;
+
+        private PlayerGroundedState _groundState;
+
+        private CollisionInfo _collisionInfo;
+        private CollideAndSlideInfo _collideAndSlideInfo;
+
         public float gravityForce = 0.35f;
+        public float terminalVelocity = 0.05f;
+        public float minGroundCheckDistance = 2 * Unit;
 
         public Vector3 down = Vector3.down;
+
 
         [Header("Movement")]
         public float movementForce = 1.3f;
 
         public float groundFriction = 10f;
 
+        public float minimumVelocity = 0.001f;
+
+        private PlayerInputHandler _playerInputHandler;
+
         [Header("Debug")]
         public Vector3 velocity = Vector3.zero;
 
-        public Vector3 verticalVelocity = Vector3.zero;
+        public Vector3 gravity = Vector3.zero;
+
         public Vector3 velocityOverride = Vector3.zero;
         public bool useVelocityOverride = false;
 
-        private CollisionInfo _collisionInfo;
-
-        private const bool PlayerPhysicsDebug = true;
-        private PlayerInputHandler _playerInputHandler;
+        private float _stableSlopeAngle = 0f;
 
         private void Awake()
         {
             _playerInputHandler = GetComponent<PlayerInputHandler>();
+            _stableSlopeAngle = Mathf.Cos(Mathf.Deg2Rad * slopeAngle);
         }
+
 
         private void FixedUpdate()
         {
@@ -57,131 +74,294 @@ namespace Player
             // https://lightbug14.gitbook.io/ccp/fundamentals/untitled/character-actor/stable-movement-features
             // https://docs.unity3d.com/Packages/com.unity.charactercontroller@1.1/manual/step-handling.html
 
+
             var dt = Time.fixedDeltaTime;
             var acceleration = Vector3.zero;
 
-            // WASD movement
-            acceleration += _playerInputHandler.RequestedMovementDirection * movementForce;
+            // --- MOVEMENT ---
+
+            if (useVelocityOverride)
+            {
+                // for controlling a player from the editor
+                acceleration += velocityOverride.normalized * movementForce;
+            }
+            else
+            {
+                acceleration += _playerInputHandler.RequestedMovementDirection * movementForce;
+            }
 
             // Ground friction
             acceleration -= velocity.normalized * (velocity.magnitude * groundFriction);
 
             // Apply Horizontal velocity
             velocity += acceleration * dt;
-            if (useVelocityOverride)
+
+            UGizmos.DrawWireCapsule(GetBottomHemisphere(transform.position), GetTopHemisphere(transform.position),
+                Radius, Color.green);
+            var posNew = CollideAndSlide(transform.position, ref velocity, false);
+            UGizmos.DrawWireCapsule(GetBottomHemisphere(posNew), GetTopHemisphere(posNew), Radius, Color.cyan);
+            transform.position = CheckGroundWithGravity(posNew, dt);
+            UGizmos.DrawWireCapsule(GetBottomHemisphere(transform.position), GetTopHemisphere(transform.position),
+                Radius, Color.magenta);
+
+            // Debug.Log($"{_groundState}");
+
+            // if (_groundState == Grounded)
+            // {
+            //     // velocity -= Vector3.Dot(velocity, down) * down;
+            //     velocity.y = 0f;
+            // }
+
+            // prevent velocity getting infinitely small and friction affecting out movement
+            if (velocity.magnitude < minimumVelocity)
             {
-                velocity = velocityOverride;
+                velocity = Vector3.zero;
             }
 
-            transform.position = CollideAndSlide(transform.position, ref velocity);
             // Debug.Log(Vector3.Dot(down, _collisionInfo.HitInfo.normal) + " " + casIter);
             UGizmos.DrawWireCapsule(GetBottomHemisphere(transform.position), GetTopHemisphere(transform.position),
                 Radius + skinWidth, Color.gray);
-            UGizmos.DrawLine(transform.position, transform.position + velocity, Color.yellow);
+            // UGizmos.DrawLine(transform.position, transform.position + velocity, Color.yellow);
         }
 
-        private int casIter;
-
-        private Vector3 CollideAndSlide(Vector3 pos, ref Vector3 vel)
+        private Vector3 CheckGroundWithGravity(Vector3 pos, float dt)
         {
-            var firstPlaneNormal = Vector3.zero;
-            var dest = pos + vel;
+            gravity += down * (gravityForce * dt);
+            var gravityMagnitude = gravity.magnitude;
+            var magnitudeNew = Mathf.Min(gravityMagnitude, terminalVelocity);
+            gravity *= magnitudeNew / gravityMagnitude;
 
-            for (casIter = 0; casIter < 3; casIter++)
+            // throw the body cast down at least the minimum + skin
+            bodyCastDebug = true;
+            BodyCast(pos,
+                gravity * Mathf.Max(magnitudeNew, minGroundCheckDistance + skinWidth) / magnitudeNew);
+            bodyCastDebug = false;
+
+            // the body cast could hit something with very high gravity and then consider us grounded
+
+            var previousState = _groundState;
+            _groundState = Airborne;
+            if (_collisionInfo.HasHit)
             {
-                BodyCast(pos, vel);
-
-                // no collisions
-                if (!_collisionInfo.HasHit) return dest;
-
-                pos += vel.normalized * _collisionInfo.ShortDistance;
-
-                if (casIter == 0)
+                var groundAngle = Vector3.Dot(_collisionInfo.HitInfo.normal, -down);
+                if (IsAngleGround(groundAngle))
                 {
-                    // first plane hit
-                    firstPlaneNormal = _collisionInfo.HitInfo.normal;
-                    vel = Vector3.ProjectOnPlane(_collisionInfo.RemainderVelocity, _collisionInfo.HitInfo.normal);
-                    UGizmos.DrawLine(_collisionInfo.NearPoint, _collisionInfo.NearPoint+vel, Color.cyan);
-                    dest = _collisionInfo.NearPoint + vel;
-                    // dest is the bottom sphere, we need to get the closes point on the segment and use that sphere instead
-                    // dest -= (PlaneDist(dest, firstPlaneNormal, _collisionInfo.HitInfo.point) - (Radius + skinWidth)) *
-                    //         firstPlaneNormal;
-                    // vel = dest - _collisionInfo.NearPoint;
+                    _groundState = Grounded;
                 }
-                else if (casIter == 1)
+                else if (IsAngleUnstable(groundAngle))
                 {
-                    // second plane hit
-                    var crease = Vector3.Cross(firstPlaneNormal, _collisionInfo.HitInfo.normal).normalized;
-                    var signedDistance = Vector3.Dot(_collisionInfo.RemainderVelocity, crease);
-                    vel = signedDistance * crease;
-                    dest = pos + vel;
-                    UGizmos.DrawLine(pos, pos + vel, Color.blue);
+                    _groundState = Unstable;
                 }
-                else if (casIter == 2)
+            }
+
+            // we don't want to add gravity when we have been grounded, now and previously
+            if (_groundState == Grounded && previousState == Grounded)
+            {
+                gravity = Vector3.zero;
+            }
+            else
+            {
+                pos = CollideAndSlide(pos, ref gravity, false);
+
+                if (IsAngleGround(_collideAndSlideInfo.GetBestFloor(down)))
                 {
-                    vel = Vector3.zero;
-                    pos = _collisionInfo.NearPoint;
+                    _groundState = Grounded;
+                }
+
+                // we want to take out the non-gravitational components and
+                // give that to velocity so that friction can do its job
+
+                if (_groundState == Grounded)
+                {
+                    gravity = Vector3.zero;
                 }
             }
 
             return pos;
         }
 
+        private bool IsAngleUnstable(float groundAngle)
+        {
+            return groundAngle > wallTolerance;
+        }
+
+        private bool IsAngleGround(float normal)
+        {
+            return normal > _stableSlopeAngle;
+        }
+
+
+        private Vector3 CollideAndSlide(Vector3 pos, ref Vector3 vel, bool complexProjection)
+        {
+            _collideAndSlideInfo.NumHits = 0;
+            _collideAndSlideInfo.FirstPlaneNormal = Vector3.zero;
+            var dest = pos + vel;
+
+            // vertical check
+            for (var i = 0; i < 3; i++)
+            {
+                BodyCast(pos, vel);
+
+                // no collisions
+                if (_collisionInfo.Failed) return pos;
+                if (!_collisionInfo.HasHit) return dest;
+                _collideAndSlideInfo.NumHits += 1;
+
+                pos += vel.normalized * _collisionInfo.ShortDistance;
+
+                switch (i)
+                {
+                    case 0:
+                        _collideAndSlideInfo.FirstPlaneNormal = _collisionInfo.HitInfo.normal;
+                        // dest -= (PlaneDist(dest, _collideAndSlideInfo.FirstPlaneNormal, _collisionInfo.HitInfo.point) - (Radius + skinWidth)) *
+                        //         _collideAndSlideInfo.FirstPlaneNormal;
+                        // vel = dest - _collisionInfo.NearPoint;
+                        vel = Vector3.ProjectOnPlane(_collisionInfo.RemainderVelocity, _collisionInfo.HitInfo.normal);
+                        if (complexProjection)
+                        {
+                            // project the velocity onto the plane with the up vector
+                            var up = -down;
+                            var upwardsProjected =
+                                -Vector3.Dot(_collisionInfo.HitInfo.normal, _collisionInfo.RemainderVelocity) /
+                                Vector3.Dot(_collisionInfo.HitInfo.normal, up) * up;
+                            vel = (_collisionInfo.RemainderVelocity + upwardsProjected).normalized * vel.magnitude;
+                        }
+
+                        dest = _collisionInfo.NearPoint + vel;
+
+                        var p = _collisionInfo.HitInfo.point;
+                        UGizmos.DrawLine(p, p + _collisionInfo.RemainderVelocity, Color.blue);
+                        UGizmos.DrawLine(_collisionInfo.HitInfo.point, _collisionInfo.HitInfo.point + vel, Color.cyan);
+                        // Debug.Log($"{_collisionInfo.RemainderVelocity} {vel} {_collisionInfo.HitInfo.normal}");
+                        // dest is the bottom sphere, we need to get the closes point on the segment and use that sphere instead
+                        break;
+                    case 1:
+                    {
+                        // second plane hit
+                        _collideAndSlideInfo.SecondPlaneNormal = _collisionInfo.HitInfo.normal;
+                        var crease = Vector3.Cross(_collideAndSlideInfo.FirstPlaneNormal,
+                            _collideAndSlideInfo.SecondPlaneNormal).normalized;
+                        _collideAndSlideInfo.Crease = crease;
+                        var signedDistance = Vector3.Dot(_collisionInfo.RemainderVelocity, crease);
+                        vel = signedDistance * crease;
+                        dest = pos + vel;
+                        UGizmos.DrawLine(pos, pos + vel, Color.blue);
+                        break;
+                    }
+                    case 2:
+                        _collideAndSlideInfo.ThirdPlaneNormal = _collisionInfo.HitInfo.normal;
+                        vel = Vector3.zero;
+                        pos = _collisionInfo.NearPoint;
+                        break;
+                }
+            }
+
+
+            return pos;
+        }
+
+        bool bodyCastDebug = false;
+
+        private readonly Collider[] _penTestColliders = new Collider[1];
+
         private void BodyCast(Vector3 position, Vector3 vel)
         {
-            var bottom = GetBottomHemisphere(position);
-            var top = GetTopHemisphere(position);
-            var magnitude = vel.magnitude;
-            var direction = vel / magnitude;
-
-            var hasHit = Physics.CapsuleCast(bottom, top, Radius, direction, out var hitInfo,
-                magnitude + skinWidth, groundLayer, QueryTriggerInteraction.UseGlobal);
-
-
-            if (PlayerPhysicsDebug)
+            for(var i = 0; i < 10; i++)
             {
-                UGizmos.DrawRay(hitInfo.point, hitInfo.normal, Color.red);
-            }
+                var bottom = GetBottomHemisphere(position);
+                var top = GetTopHemisphere(position);
+                var magnitude = vel.magnitude;
+                var direction = vel / magnitude;
 
-            if (hasHit)
-            {
-                var touchVel = vel * hitInfo.distance / vel.magnitude;
-                var n = hitInfo.normal;
-                var adjustedSkinWidth = -(skinWidth * n.sqrMagnitude * touchVel.magnitude) / Vector3.Dot(n, touchVel);
-                var shortDistance = Mathf.Max(hitInfo.distance - adjustedSkinWidth, 0f);
-                var remainingDistance = magnitude - shortDistance;
+                var hasHit = Physics.CapsuleCast(bottom, top, Radius, direction, out var hitInfo, magnitude + skinWidth, groundLayer, QueryTriggerInteraction.UseGlobal);
 
-                _collisionInfo.HasHit = true;
-                _collisionInfo.HitInfo = hitInfo;
-                _collisionInfo.ShortDistance = shortDistance;
-                _collisionInfo.RemainderVelocity = direction * remainingDistance;
-                _collisionInfo.NearPoint = position + direction * shortDistance;
-                _collisionInfo.RelevantOffset = ClosestPointOffset(position, hitInfo.point);
-
-                var color = casIter switch
+                if (bodyCastDebug)
                 {
-                    0 => Color.blue,
-                    1 => Color.green,
-                    _ => Color.red
-                };
-                // UGizmos.DrawWireCapsule(bottom, top, Radius, color);
-                var hitPos = position + direction * hitInfo.distance;
-                var bottomNew = GetBottomHemisphere(hitPos);
-                var topNew = GetTopHemisphere(hitPos);
-                UGizmos.DrawWireCapsule(bottomNew, topNew, Radius, color);
-                UGizmos.DrawWireCapsule(bottomNew, topNew, Radius + skinWidth, Color.blue);
-                UGizmos.DrawWireSphere(hitPos + _collisionInfo.RelevantOffset, Radius, Color.yellow);
-                UGizmos.DrawArrow(hitPos, _collisionInfo.NearPoint, color, 1f, 0.05f);
-                // UGizmos.DrawPoint(hitInfo.point - hitInfo.normal * skinWidth, 0.01f, Color.blue);
-                UGizmos.DrawLine(hitInfo.point - hitInfo.normal * skinWidth,
-                    hitInfo.point - hitInfo.normal * skinWidth - velocity.normalized * adjustedSkinWidth, Color.blue);
-                UGizmos.DrawWireCapsule(GetBottomHemisphere(_collisionInfo.NearPoint), GetTopHemisphere(_collisionInfo.NearPoint), Radius + skinWidth, Color.cyan);
-            }
-            else
-            {
-                _collisionInfo.HasHit = false;
+                    UGizmos.DrawCapsuleCast(bottom, top, Radius, direction, magnitude + skinWidth, hasHit, hitInfo);
+                }
+
+                if (hasHit)
+                {
+                    var touchVel = vel * hitInfo.distance / vel.magnitude;
+                    var n = hitInfo.normal;
+                    // this formula works by taking the deepest point the skin is inside the geometry
+                    // and moving it in the reverse direction of the velocity until the distance of that point to the geometry is 0
+                    var skinPenetrationAlongVel = -(skinWidth * n.sqrMagnitude * touchVel.magnitude) / Vector3.Dot(n, touchVel);
+                    var shortDistance = Mathf.Max(hitInfo.distance - skinPenetrationAlongVel, 0f);
+                    var remainingDistance = magnitude - shortDistance;
+
+                    _collisionInfo.HasHit = true;
+                    _collisionInfo.HitInfo = hitInfo;
+                    _collisionInfo.ShortDistance = shortDistance;
+                    _collisionInfo.RemainderVelocity = direction * remainingDistance;
+                    _collisionInfo.NearPoint = position + direction * shortDistance;
+                    _collisionInfo.RelevantOffset = ClosestPointOffset(position, hitInfo.point);
+                    
+                    UGizmos.DrawRay(hitInfo.point, hitInfo.normal, Color.red);
+
+                    // var color = casIter switch
+                    // {
+                    //     0 => Color.blue,
+                    //     1 => Color.green,
+                    //     _ => Color.red
+                    // };
+                    // UGizmos.DrawWireCapsule(bottom, top, Radius, color);
+                    // if (bodyCastDebug)
+                    // {
+                    //     if (PlayerPhysicsDebug)
+                    //     {
+                    //     }
+                    //     
+                    //     var color = Color.red;
+                    //     var hitPos = position + direction * hitInfo.distance;
+                    //     var bottomNew = GetBottomHemisphere(hitPos);
+                    //     var topNew = GetTopHemisphere(hitPos);
+                    //     UGizmos.DrawWireCapsule(bottom, top, Radius, color * 0.5f);
+                    //     UGizmos.DrawWireCapsule(bottomNew, topNew, Radius, color);
+                    //     UGizmos.DrawWireCapsule(bottomNew, topNew, Radius + skinWidth, Color.blue);
+                    //     // UGizmos.DrawWireSphere(hitPos + _collisionInfo.RelevantOffset, Radius, Color.yellow);
+                    //     // UGizmos.DrawArrow(hitPos, _collisionInfo.NearPoint, color, 1f, 0.05f);
+                    //     // UGizmos.DrawPoint(hitInfo.point - hitInfo.normal * skinWidth, 0.01f, Color.blue);
+                    //     UGizmos.DrawLine(hitInfo.point - hitInfo.normal * skinWidth,
+                    //         hitInfo.point - hitInfo.normal * skinWidth - velocity.normalized * adjustedSkinWidth,
+                    //         Color.blue);
+                    //     // UGizmos.DrawWireCapsule(GetBottomHemisphere(_collisionInfo.NearPoint),
+                    //     //     GetTopHemisphere(_collisionInfo.NearPoint), Radius + skinWidth, Color.cyan);
+                    // }
+                }
+                else
+                {
+                    // if (bodyCastDebug)
+                    // {
+                    //     UGizmos.DrawWireCapsule(bottom, top, Radius, Color.cyan);
+                    //     var offset = vel.normalized * (magnitude + skinWidth);
+                    //     UGizmos.DrawWireCapsule(bottom + offset, top + offset, Radius, Color.cyan);
+                    // }
+                    //
+
+                    var intersections = Physics.OverlapCapsuleNonAlloc(bottom, top, Radius, _collisions, groundLayer);
+                    if (intersections > 0)
+                    {
+                        vel /= 2;
+                        if (vel.magnitude < minimumVelocity)
+                        {
+                            _collisionInfo.Failed = true;
+                        }
+
+                        var point = _collisions[0].ClosestPoint(position);
+                        UGizmos.DrawPoint(point, 0.01f, Color.blue);
+                        Debug.Log($"retrying cast, {vel.magnitude}");
+                        continue;
+                    }
+
+                    _collisionInfo.HasHit = false;
+                }
+                
+                break;
             }
         }
+
+        private readonly Collider[] _collisions = new Collider[3];
 
         private void OnDrawGizmos() => DrawPlayerGizmos(Color.green);
 
