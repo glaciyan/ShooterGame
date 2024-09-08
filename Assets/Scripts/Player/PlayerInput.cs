@@ -20,8 +20,6 @@ namespace Player
             VirtualViewAngle.y = Mathf.Clamp(VirtualViewAngle.y, -90f, 90f);
         }
 
-        // --- Utility ---
-
         /// <summary>
         /// Calculates the requested movement direction based on the current movement input and view angle.
         /// The direction is relative to the player's yaw (horizontal rotation), effectively rotating
