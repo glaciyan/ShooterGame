@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -6,16 +5,18 @@ namespace Player
 {
     public class MyPlayer : MonoBehaviour
     {
-        [Header("Camera")]
+        [Header("Camera Input")]
         public FirstPersonCamera playerCamera;
         public Transform cameraFollowPoint;
         public float lookSensitivity = 1f;
         public Vector2 VirtualViewAngle { get; private set; }
         private const float LookSensitivityReduction = 0.1f;
 
+        
+        
         private void Awake()
         {
-            playerCamera.Follow = cameraFollowPoint;
+            playerCamera.SetFollow(cameraFollowPoint);
         }
 
         private void OnLook(InputValue value)
