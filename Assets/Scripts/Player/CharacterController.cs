@@ -1,16 +1,22 @@
-using System;
 using Player.Core;
 using UnityEngine;
 
 namespace Player
 {
-    public class MyCharacterController : MonoBehaviour, ICharacterController
+    public class CharacterController : MonoBehaviour, ICharacterController, IInputObserver
     {
         public KinematicCharacterMotor motor;
 
+        private Vector3 _movementDirection = Vector3.zero;
+        
         private void Start()
         {
             motor.CharacterController = this;
+        }
+
+        public void OnInputUpdate(in PlayerInput input)
+        {
+            _movementDirection = input.GetRequestedMovementDirection();
         }
 
         public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
@@ -19,7 +25,7 @@ namespace Player
 
         public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
         {
-            currentVelocity.x = 1f;
+            Debug.Log(_movementDirection);
         }
 
         public void BeforeCharacterUpdate(float deltaTime)
