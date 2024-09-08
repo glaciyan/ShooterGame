@@ -28790,7 +28790,7 @@ GameObject:
   - component: {fileID: 2073090354}
   - component: {fileID: 2073090356}
   m_Layer: 0
-  m_Name: Player
+  m_Name: PlayerManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -28811,6 +28811,7 @@ MonoBehaviour:
   playerCamera: {fileID: 876585459}
   cameraFollowPoint: {fileID: 1492836539}
   lookSensitivity: 1
+  character: {fileID: 1756302672}
 --- !u!4 &2073090355
 Transform:
   m_ObjectHideFlags: 0
@@ -30482,5 +30483,5 @@ SceneRoots:
   - {fileID: 1837065369}
   - {fileID: 4458292795387662997}
   - {fileID: 1756302671}
-  - {fileID: 2073090355}
   - {fileID: 876585458}
+  - {fileID: 2073090355}
