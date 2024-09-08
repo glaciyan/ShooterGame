@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Player
 {
-    public class MyCharacter : MonoBehaviour, ICharacterController
+    public class MyCharacterController : MonoBehaviour, ICharacterController
     {
         public KinematicCharacterMotor motor;
 
@@ -15,54 +15,48 @@ namespace Player
 
         public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
         {
-            throw new NotImplementedException();
         }
 
         public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
         {
-            throw new NotImplementedException();
+            currentVelocity.x = 1f;
         }
 
         public void BeforeCharacterUpdate(float deltaTime)
         {
-            throw new NotImplementedException();
         }
 
         public void PostGroundingUpdate(float deltaTime)
         {
-            throw new NotImplementedException();
         }
 
         public void AfterCharacterUpdate(float deltaTime)
         {
-            throw new NotImplementedException();
         }
 
         public bool IsColliderValidForCollisions(Collider coll)
         {
-            throw new NotImplementedException();
+            return true;
         }
 
-        public void OnGroundHit(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint, ref HitStabilityReport hitStabilityReport)
+        public void OnGroundHit(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint,
+            ref HitStabilityReport hitStabilityReport)
         {
-            throw new NotImplementedException();
         }
 
         public void OnMovementHit(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint,
             ref HitStabilityReport hitStabilityReport)
         {
-            throw new NotImplementedException();
         }
 
-        public void ProcessHitStabilityReport(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint, Vector3 atCharacterPosition,
+        public void ProcessHitStabilityReport(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint,
+            Vector3 atCharacterPosition,
             Quaternion atCharacterRotation, ref HitStabilityReport hitStabilityReport)
         {
-            throw new NotImplementedException();
         }
 
         public void OnDiscreteCollisionDetected(Collider hitCollider)
         {
-            throw new NotImplementedException();
         }
     }
 }
